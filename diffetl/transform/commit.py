@@ -1,22 +1,36 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-import datetime
-from typing import Dict, List
+from datetime import datetime
+from typing import Dict, List, Self, Sequence
+from git.objects import Commit as GitCommit
 
 
 @dataclass(frozen=True)
 class Author:
-    name: str
-    email: str
+    name: str | None
+    email: str | None
 
 
 @dataclass(frozen=True)
 class Commit:
-    chash: str
+    hexsha: str
     message: str
     author: Author
-    created_at: datetime.datetime
-    parent_chash: List[str] 
+    created_at: datetime
+    parents_hexsha: Sequence[str] 
+
+    @classmethod
+    def from_git_commit(cls, git_commit: GitCommit) -> Self:
+        return cls(
+            hexsha=git_commit.hexsha,
+            message=str(git_commit.message).strip(),
+            author=Author(
+                name=git_commit.author.name,
+                email=git_commit.author.email
+            ),
+            created_at=datetime.fromtimestamp(git_commit.committed_date),
+            parents_hexsha=[p.hexsha for p in git_commit.parents]
+        )
 
 
 @dataclass
@@ -25,15 +39,15 @@ class CommitElement:
     _commit_map: Dict[str, 'CommitElement']
 
     def __hash__(self) -> int:
-        return hash(self.commit.chash)
+        return hash(self.commit.hexsha)
     
     def __eq__(self, value: object) -> bool:
         if isinstance(value, CommitElement):
-            return self.commit.chash == value.commit.chash
+            return self.commit.hexsha == value.commit.hexsha
         return False
     
     def iter_parents(self) -> Iterator['CommitElement']:
-        for parent_hash in self.commit.parent_chash:
+        for parent_hash in self.commit.parents_hexsha:
             parent_element = self._commit_map.get(parent_hash)
             if parent_element:
                 yield parent_element
@@ -43,7 +57,7 @@ class CommitElement:
         all_elements: Dict[str, CommitElement] = {}
 
         for commit_data in commits_data:
-            all_elements[commit_data.chash] = cls(
+            all_elements[commit_data.hexsha] = cls(
                 commit=commit_data,
                 _commit_map=all_elements
             )
@@ -51,6 +65,6 @@ class CommitElement:
         return all_elements
     
     @property
-    def chash(self) -> str:
-        return self.commit.chash
+    def hexsha(self) -> str:
+        return self.commit.hexsha
     
