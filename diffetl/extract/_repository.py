@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from transform.commit import Commit
+from diffetl.transform.commit import Commit
 
 
 class GitClient(ABC):
@@ -11,7 +11,7 @@ class GitClient(ABC):
     def _clone(self): ...
 
     @abstractmethod
-    def list_commits(self, count: int) -> List[str]: ...
+    def list_commits(self, count: int) -> List[Commit]: ...
     
 
 class GitRepository(ABC):
