@@ -1,8 +1,10 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, List, Self, Sequence
-from git.objects import Commit as GitCommit
+from datetime import UTC, datetime
+from typing import Dict, List, Optional, Self, Sequence, TYPE_CHECKING
+from git import Commit as GitCommit
+if TYPE_CHECKING:
+    from diffetl.transform.diff import Diff
 
 
 @dataclass(frozen=True)
@@ -17,7 +19,7 @@ class Commit:
     message: str
     author: Author
     created_at: datetime
-    parents_hexsha: Sequence[str] 
+    parents_hexsha: Sequence[str]
 
     @classmethod
     def from_git_commit(cls, git_commit: GitCommit) -> Self:
@@ -28,15 +30,15 @@ class Commit:
                 name=git_commit.author.name,
                 email=git_commit.author.email
             ),
-            created_at=datetime.fromtimestamp(git_commit.committed_date),
+            created_at=datetime.fromtimestamp(git_commit.committed_date, UTC),
             parents_hexsha=[p.hexsha for p in git_commit.parents]
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class CommitElement:
     commit: Commit
-    _commit_map: Dict[str, 'CommitElement']
+    diff: Optional['Diff'] = None
 
     def __hash__(self) -> int:
         return hash(self.commit.hexsha)
@@ -46,25 +48,27 @@ class CommitElement:
             return self.commit.hexsha == value.commit.hexsha
         return False
     
-    def iter_parents(self) -> Iterator['CommitElement']:
+    def iter_parents(self, commit_map: Dict[str, 'CommitElement']) -> Iterator['CommitElement']:
         for parent_hash in self.commit.parents_hexsha:
-            parent_element = self._commit_map.get(parent_hash)
+            parent_element = commit_map.get(parent_hash)
             if parent_element:
                 yield parent_element
-        
+    
     @classmethod
-    def from_commits_list(cls, commits_data: List[Commit]) -> Dict[str, 'CommitElement']:
-        all_elements: Dict[str, CommitElement] = {}
-
-        for commit_data in commits_data:
-            all_elements[commit_data.hexsha] = cls(
-                commit=commit_data,
-                _commit_map=all_elements
-            )
-
-        return all_elements
+    def to_group_dict(cls, elements: List['CommitElement']) -> Dict[str, 'CommitElement']:
+        return {ce.hexsha: ce for ce in elements}
     
     @property
     def hexsha(self) -> str:
         return self.commit.hexsha
+
+
+class CommitGraph:
+    def __init__(self, elements: List[CommitElement]) -> None:
+        self._commit_map = {e.hexsha: e for e in elements}
     
+    def get(self, hexsha: str) -> Optional[CommitElement]:
+        return self._commit_map.get(hexsha)
+    
+    def iter_parents(self, element: CommitElement) -> Iterator[CommitElement]:
+        return element.iter_parents(self._commit_map)
