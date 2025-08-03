@@ -1,37 +1,34 @@
-from typing import List
-from diffetl.extract._repository import GitClient
-from diffetl.config import get_repo_dir
-from git import Repo
-from git.objects import Commit as GitCommit
-from diffetl.transform.commit import Commit
+from typing import Dict, List
+from git import Commit as GitCommit
+
+from diffetl.extract._client import GitClient
+from diffetl.extract._repository import GitRepository
+from diffetl.transform._diff import _Diff
+from diffetl.transform.commit import Commit, CommitElement
 
 
-class GitHubClient(GitClient):
-    def __init__(self, repo_url: str):
-        self.repo_url = repo_url
-        self._cloned = False
-        self.repo = None
-
-    def _clone(self):
-        repo_dir = get_repo_dir(self.repo_url)
-
-        if repo_dir.exists():
-            self.repo = Repo(str(repo_dir))
-            if not self.repo.is_dirty():
-                origin = self.repo.remotes.origin
-                origin.pull()
-        else:
-            repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.repo = Repo.clone_from(self.repo_url, str(repo_dir))
+class LocalGitRepository(GitRepository):
+    def __init__(self, git_client: GitClient):
+        self.git_client = git_client
     
-    def list_commits(self, count: int) -> List[Commit]:
-        self._clone()
-        if not self.repo:
-            raise RuntimeError("Init repo failed.")
-
-        git_commits: List[GitCommit] = list(self.repo.iter_commits("master", max_count=count))
-        return [Commit.from_git_commit(gc) for gc in git_commits]
-
-
+    def fetch_commits(self, max_count: int, branch: str) -> Dict[str, CommitElement]: 
+        raw_commits: List[GitCommit] = self.git_client.list_commits(max_count, branch)
+        elements = self._create_linked_elements(raw_commits)
+        return CommitElement.to_group_dict(elements)
     
+    def _create_linked_elements(self, raw_commits: List[GitCommit]) -> List[CommitElement]:
+        elements: List[CommitElement] = []
 
+        for raw_commit in raw_commits:
+            commit = Commit.from_git_commit(raw_commit)
+            diff = _Diff(commit_hexsha=raw_commit.hexsha, git_commit=raw_commit).to_diff()
+
+            element = CommitElement(
+                commit=commit,
+                diff=diff
+            )
+
+            elements.append(element)
+        
+        return elements
+    
