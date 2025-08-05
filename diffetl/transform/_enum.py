@@ -2,8 +2,6 @@ from enum import Enum
 import mimetypes
 from typing import Optional
 
-import magic
-
 
 class DiffType(Enum):
     COMMIT = "commit"
@@ -49,14 +47,18 @@ class FileType(Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_path_to_content(cls, file_path: str, content: Optional[bytes] = None) -> 'FileType':
+    def from_path_to_content(cls, file_path: Optional[str]) -> 'FileType':
+        if not file_path:
+            return cls.UNKNOWN
+        
+        if any(file_path.endswith(ext) for ext in (
+            ".yaml", ".ini", ".json", ".toml",
+            ".yml", ".cfg", ".conf", ".properties",
+            ".gitignore"
+        )):
+            return cls.CONFIG
+        
         mime_type: Optional[str] = None
-
-        if content is not None:
-            try:
-                mime_type = magic.from_buffer(content, mime=True)
-            except Exception:
-                pass
         
         if mime_type is None:
             mime_type, _ = mimetypes.guess_type(file_path)
