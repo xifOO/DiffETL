@@ -3,8 +3,8 @@ from git import Commit as GitCommit
 
 from diffetl.extract._client import GitClient
 from diffetl.extract._repository import GitRepository
-from diffetl.transform._diff import _Diff
 from diffetl.transform.commit import Commit, CommitElement
+from diffetl.transform.diff import Diff
 
 
 class LocalGitRepository(GitRepository):
@@ -21,7 +21,7 @@ class LocalGitRepository(GitRepository):
 
         for raw_commit in raw_commits:
             commit = Commit.from_git_commit(raw_commit)
-            diff = _Diff(commit_hexsha=raw_commit.hexsha, git_commit=raw_commit).to_diff()
+            diff = Diff.to_diff(raw_commit)
 
             element = CommitElement(
                 commit=commit,
