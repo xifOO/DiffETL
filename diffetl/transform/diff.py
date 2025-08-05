@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Union, overload
+from typing import Any, Dict, Iterator, List, Optional, Self, Sequence, Union
+from git import Diff as GitDiff, Commit as GitCommit
 
-from diffetl.transform._enum import ChangeType, DiffType
-from diffetl.transform.commit import Author
+from diffetl.transform._enum import ChangeType, DiffType, FileType
+from diffetl.transform.file import FileMetadata
 
 
 @dataclass(frozen=True)
@@ -16,9 +16,6 @@ class DiffStats:
 
 @dataclass
 class DiffMetadata:
-    author: Optional[Author] = None
-    timestamp: Optional[datetime] = None
-    commit_hexsha: Optional[str] = None
     branch: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     custom_attributes: Dict[str, Any] = field(default_factory=dict)
@@ -32,7 +29,7 @@ class DiffElement:
         stats: DiffStats,
         identifier: str,
         change_type: ChangeType = ChangeType.MODIFIED,
-        metadata: Optional[DiffMetadata] = None,
+        metadata: Optional[FileMetadata] = None,
         parent: Optional['DiffElement'] = None
     ) -> None:
         self.element_type = element_type
@@ -77,6 +74,19 @@ class Diff:
             return self._elements[index]
         return self._elements[index]
     
+    @classmethod
+    def to_diff(cls, git_commit: GitCommit) -> Self:
+        diff = cls(commit_hexsha=git_commit.hexsha)
+        diff._create_metadata(git_commit)
+        
+        file_elements = diff._load_diff_elements(git_commit)
+
+        for elem in file_elements:
+            if elem is not None:
+                diff.add_element(elem)
+        
+        return diff
+
     def add_element(self, element: DiffElement) -> None:
         self._elements.append(element) 
     
@@ -111,12 +121,103 @@ class Diff:
             total_lines_removed += elem.stats.lines_removed
             total_hunks += elem.stats.hunks_count
 
+
         return DiffStats(
             lines_added=total_lines_added,
             lines_removed=total_lines_removed,
             files_changed=len(unique_files),
             hunks_count=total_hunks
         )
+    
+    def _create_metadata(self, git_commit: GitCommit) -> None:
+        self.metadata = DiffMetadata(
+            branch=None,
+            tags=[],
+            custom_attributes={}
+        ) # next time
+    
+    def _load_diff_elements(self, git_commit: GitCommit) -> List[DiffElement]:
+        file_elements = []
+        if git_commit.parents:
+            parent = git_commit.parents[0]
+            git_diff = parent.diff(git_commit)
+        else:
+            git_diff = git_commit.diff(None)
+        
+        for diff_item in git_diff:
+            file_element = self._create_file_element(diff_item)
+            file_elements.append(file_element)
+        return file_elements
+    
+    def _create_file_element(self, diff_item: GitDiff) -> Optional[DiffElement]:
+        try:
+            if diff_item.new_file:
+                change_type = ChangeType.ADDED
+                file_path = diff_item.b_path
+            elif diff_item.deleted_file:
+                change_type = ChangeType.REMOVED
+                file_path = diff_item.a_path
+            elif diff_item.renamed_file:
+                change_type = ChangeType.RENAMED
+                file_path = f"{diff_item.a_path} -> {diff_item.b_path}"
+            else:
+                change_type = ChangeType.MODIFIED
+                file_path = diff_item.a_path or diff_item.b_path
+
+            file_type = FileType.from_path_to_content(file_path)
+    
+            lines_added, lines_removed = self._calculate_lines_stats(diff_item)
+
+            file_stats = DiffStats(
+                lines_added=lines_added,
+                lines_removed=lines_removed,
+                files_changed=1,
+                hunks_count=1 if lines_added > 0 or lines_removed > 0 else 0
+            )
+
+            file_metadata = FileMetadata(
+                mode=str(diff_item.b_mode) if diff_item.b_mode else None,
+                is_binary=self._is_binary_file(diff_item),
+                type=file_type
+            )   
+
+            file_element = DiffElement(
+                element_type=DiffType.FILE,
+                stats=file_stats,
+                identifier=file_path if file_path else "",
+                change_type=change_type,
+                metadata=file_metadata
+            )
+
+            return file_element
+        
+        except Exception as e:
+            return None
+
+    def _calculate_lines_stats(self, diff_item) -> tuple[int, int]:
+        lines_added = 0
+        lines_removed = 0
+        
+        try:
+            if hasattr(diff_item, 'diff') and diff_item.diff:
+                diff_text = diff_item.diff.decode('utf-8', errors='ignore')
+                for line in diff_text.split('\n'):
+                    if line.startswith('+') and not line.startswith('+++'):
+                        lines_added += 1
+                    elif line.startswith('-') and not line.startswith('---'):
+                        lines_removed += 1
+        except Exception:
+            pass 
+        
+        return lines_added, lines_removed
+    
+    def _is_binary_file(self, diff_item) -> bool:
+        try:
+            if hasattr(diff_item, 'diff') and diff_item.diff:
+                return b'\x00' in diff_item.diff[:1024] 
+            return False
+        except Exception:
+            return False
 
     def _walk(self, element: DiffElement) -> Iterator[DiffElement]:
         yield element
