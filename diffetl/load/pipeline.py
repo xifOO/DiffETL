@@ -26,20 +26,25 @@ def print_diff(diff: Optional[Diff], depth=0):
     print(f"{indent} Lines added   : {stats.lines_added}")
     print(f"{indent} Lines removed : {stats.lines_removed}")
     print(f"{indent} Hunks count   : {stats.hunks_count}")
+
     
     for element in diff.get_root_elements():
         print_diff_element(element, depth + 1)
 
 def print_diff_element(element: DiffElement, depth=0):
     indent = "  " * depth
-    print(f"{indent}- {element.element_type.name} | id: {element.identifier} | change: {element.change_type.name} | {element.stats.files_changed}")
+    mode = element.metadata.mode if element.metadata else None
+    is_binary = element.metadata.is_binary if element.metadata else None
+    file_type = element.metadata.type if element.metadata else None
+    print(f"{indent}- {element.element_type.name} | id: {element.identifier} | change: {element.change_type.name} | mode: {mode} | is_binary: {is_binary} | file_type: {file_type}")
     for child in element.children:
         print_diff_element(child, depth + 1)
 
 
-client = GitHubClient("https://github.com/xifOO/gitk")
+
+client = GitHubClient("https://github.com/yegor256/awesome-cfp")
 repo = LocalGitRepository(client)
-commits = repo.fetch_commits(25, "master")
+commits = repo.fetch_commits(50, "master")
 
 graph = CommitGraph(list(commits.values()))
 
