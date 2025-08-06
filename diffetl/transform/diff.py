@@ -4,14 +4,49 @@ from git import Diff as GitDiff, Commit as GitCommit
 
 from diffetl.transform._enum import ChangeType, DiffType, FileType
 from diffetl.transform.file import FileMetadata
+from diffetl.utils import is_binary_file
 
 
 @dataclass(frozen=True)
 class DiffStats:
     lines_added: int = 0
     lines_removed: int = 0
-    files_changed: int = 0
+    files_changed: int = 1
     hunks_count: int = 0
+
+    @classmethod
+    def from_git_diff(cls, diff_item: GitDiff) -> Self:
+        lines_added, lines_removed = cls._calculate_lines_stats(diff_item)
+        is_binary = is_binary_file(diff_item)
+        hunks_count = 1 if (lines_added > 0 or lines_removed > 0) and not is_binary else 0
+        return cls(
+            lines_added=lines_added,
+            lines_removed=lines_removed,
+            files_changed=1,
+            hunks_count=hunks_count
+        )
+
+    @classmethod
+    def _calculate_lines_stats(cls, diff_item: GitDiff) -> tuple[int, int]:        
+        try:
+            if is_binary_file(diff_item):
+                return 0, 0 
+            
+            a_content = diff_item.a_blob.data_stream.read().decode('utf-8', errors='ignore') if diff_item.a_blob else ""
+            b_content = diff_item.b_blob.data_stream.read().decode('utf-8', errors='ignore') if diff_item.b_blob else ""
+
+            a_lines = a_content.splitlines() if a_content else []
+            b_lines = b_content.splitlines() if b_content else []
+            
+            if not a_lines: 
+                return len(b_lines), 0
+            elif not b_lines: 
+                return 0, len(a_lines)
+            else:
+                return max(0, len(b_lines) - len(a_lines)), max(0, len(a_lines) - len(b_lines))
+        except Exception: 
+            pass 
+        return 0, 0
 
 
 @dataclass
@@ -165,25 +200,17 @@ class Diff:
                 file_path = diff_item.a_path or diff_item.b_path
 
             file_type = FileType.from_path_to_content(file_path)
-    
-            lines_added, lines_removed = self._calculate_lines_stats(diff_item)
-
-            file_stats = DiffStats(
-                lines_added=lines_added,
-                lines_removed=lines_removed,
-                files_changed=1,
-                hunks_count=1 if lines_added > 0 or lines_removed > 0 else 0
-            )
+            diff_stats = DiffStats.from_git_diff(diff_item)
 
             file_metadata = FileMetadata(
                 mode=str(diff_item.b_mode) if diff_item.b_mode else None,
-                is_binary=self._is_binary_file(diff_item),
+                is_binary=is_binary_file(diff_item),
                 type=file_type
             )   
 
             file_element = DiffElement(
                 element_type=DiffType.FILE,
-                stats=file_stats,
+                stats=diff_stats,
                 identifier=file_path if file_path else "",
                 change_type=change_type,
                 metadata=file_metadata
@@ -193,31 +220,6 @@ class Diff:
         
         except Exception as e:
             return None
-
-    def _calculate_lines_stats(self, diff_item) -> tuple[int, int]:
-        lines_added = 0
-        lines_removed = 0
-        
-        try:
-            if hasattr(diff_item, 'diff') and diff_item.diff:
-                diff_text = diff_item.diff.decode('utf-8', errors='ignore')
-                for line in diff_text.split('\n'):
-                    if line.startswith('+') and not line.startswith('+++'):
-                        lines_added += 1
-                    elif line.startswith('-') and not line.startswith('---'):
-                        lines_removed += 1
-        except Exception:
-            pass 
-        
-        return lines_added, lines_removed
-    
-    def _is_binary_file(self, diff_item) -> bool:
-        try:
-            if hasattr(diff_item, 'diff') and diff_item.diff:
-                return b'\x00' in diff_item.diff[:1024] 
-            return False
-        except Exception:
-            return False
 
     def _walk(self, element: DiffElement) -> Iterator[DiffElement]:
         yield element
