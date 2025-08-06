@@ -67,7 +67,7 @@ class FileType(Enum):
 
         if "/test/" in path_lower or "/tests/" in path_lower or path_lower.startswith("tests") or path_lower.endswith(("_test.py", ".spec.ts", "-test.js")):
             return cls.TEST
-        elif "/docs/" in path_lower or "/doc/" in path_lower or path_lower.startswith("docs/") or path_lower.startswith("documentation/") or path_lower.endswith((".md", ".rst")):
+        elif "/docs/" in path_lower or "/doc/" in path_lower or path_lower.startswith("docs/") or path_lower.startswith("documentation/") or path_lower.endswith((".md", ".rst")) or "license" in path_lower:
             return cls.DOCUMENTATION
         elif "/build/" in path_lower or path_lower.startswith("build/") or "makefile" in path_lower or ".sh" in path_lower or ".bat" in path_lower:
             return cls.BUILD
