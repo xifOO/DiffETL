@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Self, Sequence, Union
+from typing import Iterator, List, Optional, Self, Sequence, Union
 from git import Diff as GitDiff, Commit as GitCommit
 
 from diffetl.transform._enum import ChangeType, DiffType, FileType
@@ -7,27 +7,16 @@ from diffetl.transform.file import FileMetadata
 from diffetl.utils import is_binary_file
 
 
-@dataclass(frozen=True)
 class DiffStats:
-    lines_added: int = 0
-    lines_removed: int = 0
-    files_changed: int = 1
-    hunks_count: int = 0
 
-    @classmethod
-    def from_git_diff(cls, diff_item: GitDiff) -> Self:
-        lines_added, lines_removed = cls._calculate_lines_stats(diff_item)
+    def __init__(self, diff_item: GitDiff):
+        self.lines_added, self.lines_removed = self._calculate_lines_stats(diff_item)
+        self.files_changed = 1
+        
         is_binary = is_binary_file(diff_item)
-        hunks_count = 1 if (lines_added > 0 or lines_removed > 0) and not is_binary else 0
-        return cls(
-            lines_added=lines_added,
-            lines_removed=lines_removed,
-            files_changed=1,
-            hunks_count=hunks_count
-        )
+        self.hunks_count = 1 if (self.lines_added > 0 or self.lines_removed > 0) and not is_binary else 0
 
-    @classmethod
-    def _calculate_lines_stats(cls, diff_item: GitDiff) -> tuple[int, int]:        
+    def _calculate_lines_stats(self, diff_item: GitDiff) -> tuple[int, int]:        
         try:
             if is_binary_file(diff_item):
                 return 0, 0 
@@ -50,10 +39,11 @@ class DiffStats:
 
 
 @dataclass
-class DiffMetadata:
-    branch: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
-    custom_attributes: Dict[str, Any] = field(default_factory=dict)
+class AggregatedDiffStats:
+    lines_added: int = 0
+    lines_removed: int = 0
+    files_changed: int = 1
+    hunks_count: int = 0
 
 
 class DiffElement:
@@ -91,11 +81,9 @@ class Diff:
 
     def __init__(
         self,
-        commit_hexsha: str,
-        metadata: Optional[DiffMetadata] = None
+        commit_hexsha: str
     ) -> None:
         self.commit_hexsha = commit_hexsha
-        self.metadata = metadata
         self._elements: List[DiffElement] = []
     
     def __len__(self) -> int:
@@ -112,7 +100,6 @@ class Diff:
     @classmethod
     def to_diff(cls, git_commit: GitCommit) -> Self:
         diff = cls(commit_hexsha=git_commit.hexsha)
-        diff._create_metadata(git_commit)
         
         file_elements = diff._load_diff_elements(git_commit)
 
@@ -144,7 +131,7 @@ class Diff:
                 return result
         return None
     
-    def get_aggregated_stats(self) -> DiffStats:
+    def get_aggregated_stats(self) -> AggregatedDiffStats:
         total_lines_added = 0 
         total_lines_removed = 0
         total_hunks = 0
@@ -157,19 +144,12 @@ class Diff:
             total_hunks += elem.stats.hunks_count
 
 
-        return DiffStats(
+        return AggregatedDiffStats(
             lines_added=total_lines_added,
             lines_removed=total_lines_removed,
             files_changed=len(unique_files),
             hunks_count=total_hunks
         )
-    
-    def _create_metadata(self, git_commit: GitCommit) -> None:
-        self.metadata = DiffMetadata(
-            branch=None,
-            tags=[],
-            custom_attributes={}
-        ) # next time
     
     def _load_diff_elements(self, git_commit: GitCommit) -> List[DiffElement]:
         file_elements = []
@@ -195,12 +175,15 @@ class Diff:
             elif diff_item.renamed_file:
                 change_type = ChangeType.RENAMED
                 file_path = f"{diff_item.a_path} -> {diff_item.b_path}"
+            elif diff_item.copied_file:
+                change_type = ChangeType.COPIED
+                file_path = diff_item.a_path
             else:
                 change_type = ChangeType.MODIFIED
                 file_path = diff_item.a_path or diff_item.b_path
 
             file_type = FileType.from_path_to_content(file_path)
-            diff_stats = DiffStats.from_git_diff(diff_item)
+            diff_stats = DiffStats(diff_item)
 
             file_metadata = FileMetadata(
                 mode=str(diff_item.b_mode) if diff_item.b_mode else None,
