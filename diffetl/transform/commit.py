@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Self, Sequence, TYPE_CHECKING
 from git import BadName, Commit as GitCommit
 
-from diffetl.transform._enum import BranchType
+from diffetl.transform._enum import BotType, BranchType
 if TYPE_CHECKING:
     from diffetl.transform.diff import Diff
 
@@ -14,6 +14,12 @@ class Author:
     name: str | None
     email: str | None
 
+    def to_dict(self) -> Dict[str, Optional[str]]:
+        return {
+            "name": self.name,
+            "email": self.email
+        }
+
 
 class CommitMetadata:
     def __init__(self, git_commit: GitCommit) -> None:
@@ -22,9 +28,17 @@ class CommitMetadata:
         self.custom_attributes: Dict[str, Any] = {}
 
         self._add_branch_types()
+        self._detect_bot_commit(git_commit)
     
     def add_custom_attribute(self, key: str, value: Any) -> None:
         self.custom_attributes[key] = value
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "branches": self.branches,
+            "tags": self.tags,
+            "custom_attributes": self.custom_attributes
+        }
     
     def _add_branch_types(self):
         branch_types = [BranchType.from_branch_name(b) for b in self.branches]
@@ -38,12 +52,20 @@ class CommitMetadata:
         self.add_custom_attribute("branch_types", [bt.value for bt in branch_types])
         self.add_custom_attribute("branch_summary", type_counts)
         self.add_custom_attribute("has_lost_branch", BranchType.LOST in branch_types)
-        self.add_custom_attribute("is_bot_related", any(
+    
+
+    def _detect_bot_commit(self, git_commit: GitCommit) -> None:
+        is_bot_branch = any(
             t in (BranchType.DEPENDABOT, BranchType.RENOVATE,
                   BranchType.SEMAPHORE, BranchType.GITHUB_ACTIONS)
-            for t in branch_types
-        ))
-    
+            for t in [BranchType.from_branch_name(b) for b in self.branches]
+        )
+
+        bot_type = BotType.detect(git_commit)
+
+        self.add_custom_attribute("is_bot_related", is_bot_branch or bool(bot_type))
+        self.add_custom_attribute("bot_type", bot_type.value if bot_type else None)
+
     def _get_branches(self, git_commit: GitCommit) -> List[str]:
         try:
             branches = []
@@ -109,6 +131,16 @@ class Commit:
             metadata=metadata
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hexsha": self.hexsha,
+            "message": self.message,
+            "author": self.author.to_dict(),
+            "created_at": self.created_at,
+            "parents_hexsha": self.parents_hexsha,
+            "metadata": self.metadata.to_dict(),
+        }
+
 
 @dataclass(frozen=True)
 class CommitElement:
@@ -128,6 +160,23 @@ class CommitElement:
             parent_element = commit_map.get(parent_hash)
             if parent_element:
                 yield parent_element
+    
+    def to_dict(self) -> Dict[str, Any]:
+        data = self.commit.to_dict()
+
+        data.update({
+            "is_bot": self.metadata.custom_attributes.get("is_bot_related", False),
+            "branch_types": self.metadata.custom_attributes.get("branch_types", [])
+        })
+        
+        if self.diff:
+            stats = self.diff.get_aggregated_stats()
+
+            data.update({
+                "files_changed": stats.files_changed,
+                "lines_added": stats.lines_added
+            })
+        return data
     
     @classmethod
     def to_group_dict(cls, elements: List['CommitElement']) -> Dict[str, 'CommitElement']:

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterator, List, Optional, Self, Sequence, Union
 from git import Diff as GitDiff, Commit as GitCommit
 

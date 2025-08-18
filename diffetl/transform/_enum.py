@@ -1,7 +1,9 @@
 from enum import Enum
 from functools import lru_cache
 import mimetypes
-from typing import Optional
+import re
+from typing import Dict, List, Optional
+from git import Commit as GitCommit
 
 
 _CONFIG_EXTS = (
@@ -212,3 +214,34 @@ class BranchType(Enum):
         return cls.OTHER
         
 
+class BotType(Enum):
+    DEPENDABOT = "dependabot"
+    RENOVATE = "renovate"
+    GITHUB_ACTIONS = "github_actions"
+    SEMAPHORE = "semaphore"
+    PRE_COMMIT_CI = "pre-commit-ci"
+    RULTOR = "rultor"
+
+    @classmethod
+    def _get_patterns(cls) -> Dict['BotType', List[re.Pattern]]:
+        return {
+            cls.DEPENDABOT: [re.compile(r'dependabot(\[bot\])?'), re.compile(r'dependabot@')],
+            cls.RENOVATE: [re.compile(r'renovate'), re.compile(r'renovate-bot@')],
+            cls.GITHUB_ACTIONS: [re.compile(r'github-actions'), re.compile(r'actions@github.com')],
+            cls.SEMAPHORE: [re.compile(r'semaphore'), re.compile(r'semaphoreci@')],
+            cls.PRE_COMMIT_CI: [re.compile(r'pre\-commit\-ci\[bot\]')],
+            cls.RULTOR: [re.compile(r'@rultor\.com$'), re.compile(r'^rultor@')]
+        }
+
+    @classmethod
+    def detect(cls, commit: GitCommit) -> Optional['BotType']:
+        name = (commit.author.name or "").lower()
+        email = (commit.author.email or "").lower()
+
+        patterns = cls._get_patterns()
+
+        for bot_type, regex_list in patterns.items():
+            if any(re.search(pattern, name) or re.search(pattern, email) for pattern in regex_list):
+                return bot_type
+
+        return None
