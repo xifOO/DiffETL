@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Self, Sequence, TYPE_CHECKING
 from git import BadName, Commit as GitCommit
@@ -14,12 +14,6 @@ class Author:
     name: str | None
     email: str | None
 
-    def to_dict(self) -> Dict[str, Optional[str]]:
-        return {
-            "name": self.name,
-            "email": self.email
-        }
-
 
 class CommitMetadata:
     def __init__(self, git_commit: GitCommit) -> None:
@@ -30,15 +24,20 @@ class CommitMetadata:
         self._add_branch_types()
         self._detect_bot_commit(git_commit)
     
-    def add_custom_attribute(self, key: str, value: Any) -> None:
-        self.custom_attributes[key] = value
-    
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
+        ca = self.custom_attributes
+
         return {
             "branches": self.branches,
             "tags": self.tags,
-            "custom_attributes": self.custom_attributes
+            "is_bot": ca.get("is_bot_related", False),
+            "bot_type": ca.get("bot_type"),
+            "has_lost_branch": ca.get("has_lost_branch", False),
+            "branch_types": ca.get("branch_types", []),
         }
+    
+    def add_custom_attribute(self, key: str, value: Any) -> None:
+        self.custom_attributes[key] = value
     
     def _add_branch_types(self):
         branch_types = [BranchType.from_branch_name(b) for b in self.branches]
@@ -131,14 +130,15 @@ class Commit:
             metadata=metadata
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_flat_dict(self) -> Dict[str, Any]:
         return {
             "hexsha": self.hexsha,
             "message": self.message,
-            "author": self.author.to_dict(),
-            "created_at": self.created_at,
+            "author_name": self.author.name,
+            "author_email": self.author.email,
+            "created_at": self.created_at.isoformat(),
             "parents_hexsha": self.parents_hexsha,
-            "metadata": self.metadata.to_dict(),
+            **self.metadata.to_dict()
         }
 
 
@@ -162,20 +162,12 @@ class CommitElement:
                 yield parent_element
     
     def to_dict(self) -> Dict[str, Any]:
-        data = self.commit.to_dict()
-
-        data.update({
-            "is_bot": self.metadata.custom_attributes.get("is_bot_related", False),
-            "branch_types": self.metadata.custom_attributes.get("branch_types", [])
-        })
+        data = self.commit.to_flat_dict()
         
         if self.diff:
             stats = self.diff.get_aggregated_stats()
+            data.update(asdict(stats))
 
-            data.update({
-                "files_changed": stats.files_changed,
-                "lines_added": stats.lines_added
-            })
         return data
     
     @classmethod
