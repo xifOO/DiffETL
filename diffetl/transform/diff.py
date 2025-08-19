@@ -42,7 +42,7 @@ class DiffStats:
 class AggregatedDiffStats:
     lines_added: int = 0
     lines_removed: int = 0
-    files_changed: int = 1
+    files_changed: int = 0
     hunks_count: int = 0
 
 
