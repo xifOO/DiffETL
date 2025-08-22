@@ -104,7 +104,7 @@ class CommitMetadata:
         except:
             pass
         
-        return list(branches) if branches else ['master']
+        return list(branches) if branches else []
             
 
     def _get_tags(self) -> List[str]:
