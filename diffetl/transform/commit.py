@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Self, Sequence, TYPE_CHECKING
 from git import BadName, Commit as GitCommit
 
 from diffetl.transform._enum import BotType, BranchType
+from diffetl.transform.assessor import MessageQualityAssessor
 if TYPE_CHECKING:
     from diffetl.transform.diff import Diff
 
@@ -17,12 +18,15 @@ class Author:
 
 class CommitMetadata:
     def __init__(self, git_commit: GitCommit) -> None:
-        self.branches: List[str] = self._get_branches(git_commit)
-        self.tags: List[str] = self._get_tags(git_commit)
+        self.branches: List[str] = self._get_branches()
+        self.tags: List[str] = self._get_tags()
         self.custom_attributes: Dict[str, Any] = {}
 
+        self._commit = git_commit
+
         self._add_branch_types()
-        self._detect_bot_commit(git_commit)
+        self._detect_bot_commit()
+        self._check_quality_message()
     
     def to_dict(self):
         ca = self.custom_attributes
@@ -34,6 +38,10 @@ class CommitMetadata:
             "bot_type": ca.get("bot_type"),
             "has_lost_branch": ca.get("has_lost_branch", False),
             "branch_types": ca.get("branch_types", []),
+            "message_is_not_empty": ca.get("message_is_not_empty", None),
+            "message_is_conventional": ca.get("message_is_conventional", None),
+            "message_is_within_length": ca.get("message_is_within_length", None),
+            "message_has_forbidden_words": ca.get("message_has_forbidden_words", None)
         }
     
     def add_custom_attribute(self, key: str, value: Any) -> None:
@@ -53,23 +61,31 @@ class CommitMetadata:
         self.add_custom_attribute("has_lost_branch", BranchType.LOST in branch_types)
     
 
-    def _detect_bot_commit(self, git_commit: GitCommit) -> None:
+    def _detect_bot_commit(self) -> None:
         is_bot_branch = any(
             t in (BranchType.DEPENDABOT, BranchType.RENOVATE,
                   BranchType.SEMAPHORE, BranchType.GITHUB_ACTIONS)
             for t in [BranchType.from_branch_name(b) for b in self.branches]
         )
 
-        bot_type = BotType.detect(git_commit)
+        bot_type = BotType.detect(self._commit)
 
         self.add_custom_attribute("is_bot_related", is_bot_branch or bool(bot_type))
         self.add_custom_attribute("bot_type", bot_type.value if bot_type else None)
+    
+    def _check_quality_message(self) -> None:
+        assessor = MessageQualityAssessor()
+        validation_result = assessor.validate_message(self._commit.message)
+        
+        for k, v in validation_result.items():
+            self.add_custom_attribute(k, v)
 
-    def _get_branches(self, git_commit: GitCommit) -> List[str]:
+
+    def _get_branches(self) -> List[str]:
         try:
             branches = []
-            repo = git_commit.repo
-            commit_hexsha = git_commit.hexsha
+            repo = self._commit.repo
+            commit_hexsha = self._commit.hexsha
 
             for head in repo.heads:
                 if head.commit.hexsha == commit_hexsha:
@@ -92,13 +108,13 @@ class CommitMetadata:
             return []
 
 
-    def _get_tags(self, git_commit: GitCommit):
+    def _get_tags(self):
         try:
-            repo = git_commit.repo
+            repo = self._commit.repo
             tags = []
 
             for ref in repo.tags:
-                if ref.commit.hexsha == git_commit.hexsha:
+                if ref.commit.hexsha == self._commit.hexsha:
                     tags.append(ref.name)
             return tags
         except Exception:
