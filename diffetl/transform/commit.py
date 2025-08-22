@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Self, Sequence, TYPE_CHECKING
-from git import BadName, Commit as GitCommit
+from git import Commit as GitCommit
 
 from diffetl.transform._enum import BotType, BranchType
 from diffetl.transform.assessor import MessageQualityAssessor
@@ -18,11 +18,11 @@ class Author:
 
 class CommitMetadata:
     def __init__(self, git_commit: GitCommit) -> None:
+        self._commit: GitCommit = git_commit
+
         self.branches: List[str] = self._get_branches()
         self.tags: List[str] = self._get_tags()
         self.custom_attributes: Dict[str, Any] = {}
-
-        self._commit = git_commit
 
         self._add_branch_types()
         self._detect_bot_commit()
@@ -82,43 +82,46 @@ class CommitMetadata:
 
 
     def _get_branches(self) -> List[str]:
+        repo = self._commit.repo
+        commit_hexsha = self._commit.hexsha
+        
+        branches = set()
+        
         try:
-            branches = []
-            repo = self._commit.repo
-            commit_hexsha = self._commit.hexsha
-
-            for head in repo.heads:
-                if head.commit.hexsha == commit_hexsha:
-                    branches.append(head.name)
-
-            for remote in repo.remotes:
-                try:
-                    for ref in remote.refs:
-                        if ref.name.endswith("/HEAD"):
-                            continue
-                        if ref.commit.hexsha == commit_hexsha:
-                            branch_name = ref.name.split('/', 1)[-1]
-                            branches.append(branch_name)
-                except (ValueError, BadName):
-                    continue
-
-            return list(set(branches))
-
-        except Exception:
-            return []
-
-
-    def _get_tags(self):
+            if not repo.head.is_detached:
+                current_branch = repo.active_branch.name
+                if commit_hexsha in [c.hexsha for c in repo.iter_commits(current_branch)]:
+                    branches.add(current_branch)
+        except:
+            pass
+        
         try:
-            repo = self._commit.repo
-            tags = []
+            result = repo.git.branch('--contains', commit_hexsha)
+            for line in result.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('* '):
+                    branches.add(line)
+        except:
+            pass
+        
+        return list(branches) if branches else ['master']
+            
 
-            for ref in repo.tags:
-                if ref.commit.hexsha == self._commit.hexsha:
-                    tags.append(ref.name)
-            return tags
+    def _get_tags(self) -> List[str]:
+        tags = set()
+        repo = self._commit.repo
+        commit_hexsha = self._commit.hexsha
+
+        try:
+            result = repo.git.tag('--points-at', commit_hexsha)
+            for tag_name in result.split('\n'):
+                tag_name = tag_name.strip()
+                if tag_name:
+                    tags.add(tag_name)
         except Exception:
-            return []
+            pass
+        
+        return list(tags) if tags else []
 
 
 @dataclass(frozen=True)
