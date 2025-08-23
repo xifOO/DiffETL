@@ -10,19 +10,20 @@ from diffetl.utils import is_binary_file
 class DiffStats:
 
     def __init__(self, diff_item: GitDiff):
-        self.lines_added, self.lines_removed = self._calculate_lines_stats(diff_item)
+        self.diff_item = diff_item
+        self.lines_added, self.lines_removed = self._calculate_lines_stats()
         self.files_changed = 1
         
-        is_binary = is_binary_file(diff_item)
-        self.hunks_count = 1 if (self.lines_added > 0 or self.lines_removed > 0) and not is_binary else 0
+        self.is_binary = is_binary_file(diff_item)
+        self.hunks_count = 1 if (self.lines_added > 0 or self.lines_removed > 0) and not self.is_binary else 0
 
-    def _calculate_lines_stats(self, diff_item: GitDiff) -> tuple[int, int]:        
+    def _calculate_lines_stats(self) -> tuple[int, int]:        
         try:
-            if is_binary_file(diff_item):
+            if self.is_binary:
                 return 0, 0 
             
-            a_content = diff_item.a_blob.data_stream.read().decode('utf-8', errors='ignore') if diff_item.a_blob else ""
-            b_content = diff_item.b_blob.data_stream.read().decode('utf-8', errors='ignore') if diff_item.b_blob else ""
+            a_content = self.diff_item.a_blob.data_stream.read().decode('utf-8', errors='ignore') if self.diff_item.a_blob else ""
+            b_content = self.diff_item.b_blob.data_stream.read().decode('utf-8', errors='ignore') if self.diff_item.b_blob else ""
 
             a_lines = a_content.splitlines() if a_content else []
             b_lines = b_content.splitlines() if b_content else []
