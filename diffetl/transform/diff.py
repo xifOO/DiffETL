@@ -14,14 +14,11 @@ class DiffStats:
         self.lines_added, self.lines_removed = self._calculate_lines_stats()
         self.files_changed = 1
         
-        self.is_binary = is_binary_file(diff_item)
-        self.hunks_count = 1 if (self.lines_added > 0 or self.lines_removed > 0) and not self.is_binary else 0
+        is_binary = is_binary_file(diff_item)
+        self.hunks_count = 1 if (self.lines_added > 0 or self.lines_removed > 0) and not is_binary else 0
 
     def _calculate_lines_stats(self) -> tuple[int, int]:        
         try:
-            if self.is_binary:
-                return 0, 0 
-            
             a_content = self.diff_item.a_blob.data_stream.read().decode('utf-8', errors='ignore') if self.diff_item.a_blob else ""
             b_content = self.diff_item.b_blob.data_stream.read().decode('utf-8', errors='ignore') if self.diff_item.b_blob else ""
 
