@@ -1,11 +1,13 @@
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Self, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Self, Sequence
+
 from git import Commit as GitCommit
 
 from diffetl.transform._enum import BotType, BranchType
 from diffetl.transform.assessor import MessageQualityAssessor
+
 if TYPE_CHECKING:
     from diffetl.transform.diff import Diff
 
@@ -92,8 +94,8 @@ class CommitMetadata:
                 current_branch = repo.active_branch.name
                 if commit_hexsha in [c.hexsha for c in repo.iter_commits(current_branch)]:
                     branches.add(current_branch)
-        except:
-            pass
+        except Exception:
+            return []
         
         try:
             result = repo.git.branch('--contains', commit_hexsha)
@@ -101,8 +103,8 @@ class CommitMetadata:
                 line = line.strip()
                 if line and not line.startswith('* '):
                     branches.add(line)
-        except:
-            pass
+        except Exception:
+            return []
         
         return list(branches) if branches else []
             
@@ -119,7 +121,7 @@ class CommitMetadata:
                 if tag_name:
                     tags.add(tag_name)
         except Exception:
-            pass
+            return []
         
         return list(tags) if tags else []
 

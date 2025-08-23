@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Iterator, List, Optional, Self, Sequence, Union
-from git import Diff as GitDiff, Commit as GitCommit
+
+from git import Commit as GitCommit
+from git import Diff as GitDiff
 
 from diffetl.transform._enum import ChangeType, DiffType, FileType
 from diffetl.transform.file import FileMetadata
@@ -32,8 +34,7 @@ class DiffStats:
             else:
                 return max(0, len(b_lines) - len(a_lines)), max(0, len(a_lines) - len(b_lines))
         except Exception: 
-            pass 
-        return 0, 0
+            return 0, 0
 
 
 @dataclass

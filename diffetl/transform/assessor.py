@@ -1,7 +1,6 @@
 import re
 from typing import TypedDict, Union
 
-
 _CONVENTIONAL_COMMIT_TYPES = ["feat", "fix", "docs", "style", "refactor", "test", "perf", "build", "ci", "chore", "revert"]
 _FORBIDDEN_WORDS = ["WIP", "TODO", "FIXME", "TEMP", "DEBUG", "HACK", "XXX"]
 

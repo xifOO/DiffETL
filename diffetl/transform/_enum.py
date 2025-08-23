@@ -1,10 +1,10 @@
-from enum import Enum
-from functools import lru_cache
 import mimetypes
 import re
+from enum import Enum
+from functools import lru_cache
 from typing import Dict, List, Optional
-from git import Commit as GitCommit
 
+from git import Commit as GitCommit
 
 _CONFIG_EXTS = (
     ".yaml", ".ini", ".json", ".toml",

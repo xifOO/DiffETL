@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List
+
 from git import Commit as GitCommit
+
 from diffetl.extract._client import GitClient
 from diffetl.transform.commit import CommitElement
-    
+
 
 class GitRepository(ABC):
     def __init__(self, git_client: GitClient):

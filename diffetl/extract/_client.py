@@ -4,8 +4,8 @@ from typing import List
 from git import Commit as GitCommit
 
 
-
 class GitClient(ABC):
+    @abstractmethod
     def __init__(self, repo_url: str): ...
 
     @abstractmethod

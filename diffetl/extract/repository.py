@@ -1,4 +1,5 @@
 from typing import Dict, List
+
 from git import Commit as GitCommit
 
 from diffetl.extract._client import GitClient

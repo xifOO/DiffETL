@@ -1,8 +1,10 @@
 from typing import List
-from diffetl.extract._repository import GitClient
-from diffetl.config import get_repo_dir
-from git import Repo
+
 from git import Commit as GitCommit
+from git import Repo
+
+from diffetl.config import get_repo_dir
+from diffetl.extract._repository import GitClient
 
 
 class GitHubClient(GitClient):
