@@ -19,7 +19,7 @@ _DOC_PREFIXES = ("docs/", "documentation/")
 _DOC_SUFFIXES = (".md", ".rst", ".txt")
 _DOC_FILES = ("license", "readme", "changelog", "contributing")
 _BUILD_PATHS = ("/build/", "/ci/", "/.github/")
-_BUILD_FILES = ("makefile", "dockerfile", ".sh", ".bat", ".ps1")
+_BUILD_FILES = ("makefile", "dockerfile", "docker", ".sh", ".bat", ".ps1")
 
 _SOURCE_CODE_MIMES = {
     'text/x-python', 'text/javascript',
