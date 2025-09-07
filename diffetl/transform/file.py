@@ -9,4 +9,3 @@ class FileMetadata:
     mode: Optional[str] = None
     is_binary: bool = False
     type: FileType = FileType.UNKNOWN
-    

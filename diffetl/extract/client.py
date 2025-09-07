@@ -1,13 +1,17 @@
-from typing import List
+import urllib.parse
+from abc import abstractmethod
+from typing import Dict, Iterator, List, Optional, Tuple
 
+import requests
 from git import Commit as GitCommit
 from git import Repo
 
-from diffetl.config import get_repo_dir
+from diffetl.config import BASE_GITHUB_API, get_repo_dir
+from diffetl.extract._client import APIClientInterface
 from diffetl.extract._repository import GitClient
 
 
-class GitHubClient(GitClient):
+class LocalGitClient(GitClient):
     def __init__(self, repo_url: str):
         self.repo_url = repo_url
         self._cloned = False
@@ -24,16 +28,77 @@ class GitHubClient(GitClient):
         else:
             repo_dir.parent.mkdir(parents=True, exist_ok=True)
             self.repo = Repo.clone_from(self.repo_url, str(repo_dir))
-    
+
     def list_commits(self, count: int, branch: str) -> List[GitCommit]:
         self._clone()
         if not self.repo:
             raise RuntimeError("Init repo failed.")
 
-        git_commits: List[GitCommit] = list(self.repo.iter_commits(branch, max_count=count))
+        git_commits: List[GitCommit] = list(
+            self.repo.iter_commits(branch, max_count=count)
+        )
         return git_commits
 
 
+class BaseAPIClient(APIClientInterface):
+    def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
+        self.token = token
+        self.owner, self.repo_name = self._parse_url(repo_url)
+        self._etag_cache: Dict[str, Tuple[str, List[dict]]] = {}
 
-    
+    def _parse_url(self, repo_url: str) -> Tuple[str, str]:
+        if repo_url.startswith("git@"):
+            repo_url = repo_url.replace("git@", "https://").replace(":", "/")
 
+        parsed = urllib.parse.urlparse(repo_url)
+        path = parsed.path.strip("/")
+
+        if path.endswith(".git"):
+            path = path[:-4]
+
+        parts = path.split("/")
+        if len(parts) >= 2:
+            return parts[-2], parts[-1]  # owner, repo_name
+
+        raise ValueError("Invalid URL format: ", repo_url)
+
+    @abstractmethod
+    def fetch_pull_requests(self, state: str) -> Iterator[Dict]: ...
+
+    @abstractmethod
+    def fetch_issues(self, state: str) -> Iterator[Dict]: ...
+
+
+class GithubAPIClient(BaseAPIClient):
+    def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
+        super().__init__(repo_url, token)
+        self.base_url = BASE_GITHUB_API.format(self.owner, self.repo_name)
+        self.session = requests.Session()
+        if token:
+            self.session.headers.update({"Authorization": f"Bearer {token}"})
+
+    def _fetch(self, url: str, state: str) -> Iterator[Dict]:
+        params = {"state": state, "per_page": 100, "page": 1}
+        while True:
+            resp = self.session.get(url, params=params)
+            resp.raise_for_status()
+
+            data = resp.json()
+            if not data:
+                break
+
+            yield from data
+
+            params["page"] += 1
+
+    def fetch_pull_requests(self, state: str = "all") -> Iterator[Dict]:
+        url = self.base_url + "/pulls"
+        return self._fetch(url, state)
+
+    def fetch_pr_commits_sha(self, pr_number: int) -> List[str]:
+        url = self.base_url + f"/pulls/{pr_number}/commits"
+        return [commit["sha"] for commit in self._fetch(url, state="all")]
+
+    def fetch_issues(self, state: str = "all") -> Iterator[Dict]:
+        url = self.base_url + "/issues"
+        return self._fetch(url, state)
