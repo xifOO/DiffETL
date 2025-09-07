@@ -2,9 +2,9 @@ import urllib.parse
 from abc import abstractmethod
 from typing import Dict, Iterator, List, Optional, Tuple
 
-import requests
 from git import Commit as GitCommit
 from git import Repo
+from requests_cache import CachedSession, FileCache
 
 from diffetl.config import BASE_GITHUB_API, get_repo_dir
 from diffetl.extract._client import APIClientInterface
@@ -44,7 +44,6 @@ class BaseAPIClient(APIClientInterface):
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         self.token = token
         self.owner, self.repo_name = self._parse_url(repo_url)
-        self._etag_cache: Dict[str, Tuple[str, List[dict]]] = {}
 
     def _parse_url(self, repo_url: str) -> Tuple[str, str]:
         if repo_url.startswith("git@"):
@@ -73,7 +72,18 @@ class GithubAPIClient(BaseAPIClient):
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         super().__init__(repo_url, token)
         self.base_url = BASE_GITHUB_API.format(self.owner, self.repo_name)
-        self.session = requests.Session()
+        self.session = CachedSession(
+            "diffetl",
+            backend=FileCache(
+                cache_name="github_api_cache",
+                use_cache_dir=True,
+                use_temp=True,
+                serializer="json",
+            ),
+            expire_after=1024,
+            allowable_methods=["GET"],
+            allowable_codes=[200, 304],
+        )
         if token:
             self.session.headers.update({"Authorization": f"Bearer {token}"})
 
