@@ -285,14 +285,12 @@ class PRState(Enum):
     DRAFT = "draft"
 
     @classmethod
-    def from_commit(cls, commit: GitCommit) -> Optional["PRState"]:
-        pass
-
-
-class RelationType(Enum):
-    ORIGINAL = "original"
-    REBASE = "rebase"
-    CHERRY_PICK = "cherry-pick"
-    BACKPORT = "backport"
-    SQUASH_MERGE = "squash_merge"
-    DUPLICATE = "duplicate"
+    def from_pr_data(cls, pr_data: dict) -> 'PRState':
+        if pr_data.get("draft", False):
+            return cls.DRAFT
+        elif pr_data.get('merged_at') is not None:
+            return cls.MERGED
+        elif pr_data.get("state") == "open":
+            return cls.OPEN
+        return cls.CLOSED
+    
