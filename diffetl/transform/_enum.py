@@ -285,12 +285,11 @@ class PRState(Enum):
     DRAFT = "draft"
 
     @classmethod
-    def from_pr_data(cls, pr_data: dict) -> 'PRState':
+    def from_pr_data(cls, pr_data: dict) -> "PRState":
         if pr_data.get("draft", False):
             return cls.DRAFT
-        elif pr_data.get('merged_at') is not None:
+        elif pr_data.get("merged_at") is not None:
             return cls.MERGED
         elif pr_data.get("state") == "open":
             return cls.OPEN
         return cls.CLOSED
-    

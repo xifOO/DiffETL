@@ -10,20 +10,20 @@ from diffetl.transform.commit import Author
 @dataclass(frozen=True)
 class PullRequestRef:
     pr_number: int
-    source_repo: str  
-    target_repo: str 
-    is_fork: bool     
+    source_repo: str
+    target_repo: str
+    is_fork: bool
 
     @classmethod
     def from_pr_data(cls, value: dict) -> Self:
         source_repo = value["head"]["repo"]["full_name"]
         target_repo = value["base"]["repo"]["full_name"]
-        
+
         return cls(
             pr_number=value["number"],
             source_repo=source_repo,
             target_repo=target_repo,
-            is_fork=source_repo != target_repo
+            is_fork=source_repo != target_repo,
         )
 
 
