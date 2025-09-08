@@ -7,8 +7,7 @@ from git import Repo
 from requests_cache import CachedSession, FileCache
 
 from diffetl.config import BASE_GITHUB_API, get_repo_dir
-from diffetl.extract._client import APIClientInterface
-from diffetl.extract._repository import GitClient
+from diffetl.extract._client import GitClient
 
 
 class LocalGitClient(GitClient):
@@ -18,29 +17,45 @@ class LocalGitClient(GitClient):
         self.repo = None
 
     def _clone(self):
-        repo_dir = get_repo_dir(self.repo_url)
+        if not self._cloned:
+            repo_dir = get_repo_dir(self.repo_url)
 
-        if repo_dir.exists():
-            self.repo = Repo(str(repo_dir))
-            if not self.repo.is_dirty():
-                origin = self.repo.remotes.origin
-                origin.pull()
-        else:
-            repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.repo = Repo.clone_from(self.repo_url, str(repo_dir))
+            if repo_dir.exists():
+                self.repo = Repo(str(repo_dir))
+                if not self.repo.is_dirty():
+                    origin = self.repo.remotes.origin
+                    origin.pull()
+            else:
+                repo_dir.parent.mkdir(parents=True, exist_ok=True)
+                self.repo = Repo.clone_from(self.repo_url, str(repo_dir))
+        self._cloned = True
 
-    def list_commits(self, count: int, branch: str) -> List[GitCommit]:
+    def list_commits(
+        self, batch_size: int, branch: str, **kwargs
+    ) -> Tuple[List[GitCommit], Optional[str]]:
         self._clone()
         if not self.repo:
             raise RuntimeError("Init repo failed.")
 
-        git_commits: List[GitCommit] = list(
-            self.repo.iter_commits(branch, max_count=count)
-        )
-        return git_commits
+        iterator_gc = self.repo.iter_commits(branch)
+        batch = []
+        last_sha = kwargs.get("last_sha")
+        skip = last_sha is not None
+
+        for gc in iterator_gc:
+            if skip:
+                if gc.hexsha == last_sha:
+                    skip = False
+                continue
+            batch.append(gc)
+            if len(batch) == batch_size:
+                break
+
+        new_last_sha = batch[-1].hexsha if batch else None
+        return batch, new_last_sha
 
 
-class BaseAPIClient(APIClientInterface):
+class BaseAPIClient:
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         self.token = token
         self.owner, self.repo_name = self._parse_url(repo_url)
