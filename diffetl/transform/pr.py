@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterator, List, Optional, Self, Union, overload
+from typing import List, Optional, Self
 
-from diffetl.extract.client import APIClient
 from diffetl.transform._enum import PRState
 from diffetl.transform.commit import Author
 
@@ -62,44 +61,3 @@ class PullRequestElement:
             target_branch=value["base"]["ref"],
             source_branch=value["head"]["ref"],
         )
-
-
-class PullRequestCollection:
-    def __init__(self) -> None:
-        self._elements: List[PullRequestElement] = []
-        self._fetched = False
-
-    def _fetch_elements(self, client: APIClient, state: str):
-        if not self._fetched:
-            for pr_dict in client.fetch_pull_requests(state):
-                pr = PullRequestElement.from_dict(pr_dict)
-                self._elements.append(pr)
-            self._fetched = True
-
-    def __len__(self) -> int:
-        return len(self._elements)
-
-    def __iter__(self) -> Iterator[PullRequestElement]:
-        return iter(self._elements)
-
-    @overload
-    def __getitem__(self, index: int) -> PullRequestElement: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> List[PullRequestElement]: ...
-
-    def __getitem__(
-        self, index: Union[int, slice]
-    ) -> Union[PullRequestElement, List[PullRequestElement]]:
-        return self._elements[index]
-
-    @classmethod
-    def fetch_all(cls, client: APIClient, state: str = "all") -> Self:
-        collection = cls()
-        collection._fetch_elements(client, state)
-        return collection
-
-    def filter_by_author(self, author_name: str) -> Iterator[PullRequestElement]:
-        for pr in self._elements:
-            if pr.author.name == author_name:
-                yield pr
