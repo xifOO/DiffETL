@@ -10,6 +10,14 @@ from diffetl.utils import is_binary_file
 
 
 class DiffStats:
+    __slots__ = (
+        "diff_item",
+        "lines_added",
+        "lines_removed",
+        "files_changed",
+        "hunks_count",
+    )
+
     def __init__(self, diff_item: GitDiff):
         self.diff_item = diff_item
         self.lines_added, self.lines_removed = self._calculate_lines_stats()
@@ -54,7 +62,7 @@ class DiffStats:
             return 0, 0
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class AggregatedDiffStats:
     lines_added: int = 0
     lines_removed: int = 0
@@ -63,6 +71,16 @@ class AggregatedDiffStats:
 
 
 class DiffElement:
+    __slots__ = (
+        "element_type",
+        "stats",
+        "identifier",
+        "change_type",
+        "metadata",
+        "parent",
+        "_children",
+    )
+
     def __init__(
         self,
         element_type: DiffType,
@@ -93,6 +111,8 @@ class DiffElement:
 
 
 class Diff:
+    __slots__ = ("commit_hexsha", "_elements")
+
     def __init__(self, commit_hexsha: str) -> None:
         self.commit_hexsha = commit_hexsha
         self._elements: List[DiffElement] = []
