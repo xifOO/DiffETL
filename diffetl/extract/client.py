@@ -55,7 +55,7 @@ class LocalGitClient(GitClient):
         return batch, new_last_sha
 
 
-class BaseAPIClient:
+class APIClient:
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         self.token = token
         self.owner, self.repo_name = self._parse_url(repo_url)
@@ -70,11 +70,11 @@ class BaseAPIClient:
         if path.endswith(".git"):
             path = path[:-4]
 
-        parts = path.split("/")
-        if len(parts) >= 2:
-            return parts[-2], parts[-1]  # owner, repo_name
+        parts = [p for p in path.split("/") if p]
+        if len(parts) < 2:
+            raise ValueError(f"Invalid repo URL: {repo_url}")
 
-        raise ValueError("Invalid URL format: ", repo_url)
+        return parts[-2], parts[-1]
 
     @abstractmethod
     def fetch_pull_requests(self, state: str) -> Iterator[Dict]: ...
@@ -83,7 +83,7 @@ class BaseAPIClient:
     def fetch_issues(self, state: str) -> Iterator[Dict]: ...
 
 
-class GithubAPIClient(BaseAPIClient):
+class GithubAPIClient(APIClient):
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         super().__init__(repo_url, token)
         self.base_url = BASE_GITHUB_API.format(self.owner, self.repo_name)
@@ -92,7 +92,6 @@ class GithubAPIClient(BaseAPIClient):
             backend=FileCache(
                 cache_name="github_api_cache",
                 use_cache_dir=True,
-                use_temp=True,
                 serializer="json",
             ),
             expire_after=1024,
@@ -119,10 +118,6 @@ class GithubAPIClient(BaseAPIClient):
     def fetch_pull_requests(self, state: str = "all") -> Iterator[Dict]:
         url = self.base_url + "/pulls"
         return self._fetch(url, state)
-
-    def fetch_pr_commits_sha(self, pr_number: int) -> List[str]:
-        url = self.base_url + f"/pulls/{pr_number}/commits"
-        return [commit["sha"] for commit in self._fetch(url, state="all")]
 
     def fetch_issues(self, state: str = "all") -> Iterator[Dict]:
         url = self.base_url + "/issues"
