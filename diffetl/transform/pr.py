@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterator, List, Optional, Self, Union, overload
 
-from diffetl.extract.client import GithubAPIClient
+from diffetl.extract.client import APIClient
 from diffetl.transform._enum import PRState
 from diffetl.transform.commit import Author
 
@@ -69,7 +69,7 @@ class PullRequestCollection:
         self._elements: List[PullRequestElement] = []
         self._fetched = False
 
-    def _fetch_elements(self, client: GithubAPIClient, state: str):
+    def _fetch_elements(self, client: APIClient, state: str):
         if not self._fetched:
             for pr_dict in client.fetch_pull_requests(state):
                 pr = PullRequestElement.from_dict(pr_dict)
@@ -94,7 +94,7 @@ class PullRequestCollection:
         return self._elements[index]
 
     @classmethod
-    def fetch_all(cls, client: GithubAPIClient, state: str = "all") -> Self:
+    def fetch_all(cls, client: APIClient, state: str = "all") -> Self:
         collection = cls()
         collection._fetch_elements(client, state)
         return collection
