@@ -1,7 +1,7 @@
 import re
-from typing import TypedDict, Union
+from typing import Final, TypedDict, Union
 
-_CONVENTIONAL_COMMIT_TYPES = [
+_CONVENTIONAL_COMMIT_TYPES: Final = [
     "feat",
     "fix",
     "docs",
@@ -14,7 +14,7 @@ _CONVENTIONAL_COMMIT_TYPES = [
     "chore",
     "revert",
 ]
-_FORBIDDEN_WORDS = ["WIP", "TODO", "FIXME", "TEMP", "DEBUG", "HACK", "XXX"]
+_FORBIDDEN_WORDS: Final = ["WIP", "TODO", "FIXME", "TEMP", "DEBUG", "HACK", "XXX"]
 
 
 class ValidationResult(TypedDict):
