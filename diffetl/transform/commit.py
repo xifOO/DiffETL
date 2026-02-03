@@ -12,13 +12,15 @@ if TYPE_CHECKING:
     from diffetl.transform.diff import Diff
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Author:
     name: str | None
     email: str | None
 
 
 class CommitMetadata:
+    __slots__ = ("_commit", "branches", "tags", "custom_attributes")
+
     def __init__(self, git_commit: GitCommit) -> None:
         self._commit: GitCommit = git_commit
 
@@ -131,7 +133,7 @@ class CommitMetadata:
         return list(tags) if tags else []
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Commit:
     hexsha: str
     message: str
@@ -165,7 +167,7 @@ class Commit:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CommitElement:
     commit: Commit
     diff: Optional["Diff"] = None
