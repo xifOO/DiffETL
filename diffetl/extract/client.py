@@ -101,8 +101,15 @@ class GithubAPIClient(APIClient):
         if token:
             self.session.headers.update({"Authorization": f"Bearer {token}"})
 
-    def _fetch(self, url: str, state: str) -> Iterator[Dict]:
-        params = {"state": state, "per_page": 100, "page": 1}
+    def _fetch(self, url: str, state: str, sort: str, direction: str) -> Iterator[Dict]:
+        params = {
+            "state": state,
+            "per_page": 100,
+            "page": 1,
+            "sort": sort,
+            "direction": direction,
+        }
+
         while True:
             resp = self.session.get(url, params=params)
             resp.raise_for_status()
@@ -115,10 +122,14 @@ class GithubAPIClient(APIClient):
 
             params["page"] += 1
 
-    def fetch_pull_requests(self, state: str = "all") -> Iterator[Dict]:
+    def fetch_pull_requests(
+        self, state: str = "all", sort="created", direction="asc"
+    ) -> Iterator[Dict]:
         url = self.base_url + "/pulls"
-        return self._fetch(url, state)
+        return self._fetch(url, state, sort, direction)
 
-    def fetch_issues(self, state: str = "all") -> Iterator[Dict]:
+    def fetch_issues(
+        self, state: str = "all", sort="created", direction="asc"
+    ) -> Iterator[Dict]:
         url = self.base_url + "/issues"
-        return self._fetch(url, state)
+        return self._fetch(url, state, sort, direction)
