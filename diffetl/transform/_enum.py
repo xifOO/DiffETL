@@ -2,11 +2,11 @@ import mimetypes
 import re
 from enum import Enum
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, Final, List, Optional
 
 from git import Commit as GitCommit
 
-_CONFIG_EXTS = (
+_CONFIG_EXTS: Final = (
     ".yaml",
     ".ini",
     ".json",
@@ -19,17 +19,17 @@ _CONFIG_EXTS = (
     ".env",
     ".dockerignore",
 )
-_TEST_PATHS = ("/test/", "/tests/")
-_TEST_PREFIXES = ("tests", "test_")
-_TEST_SUFFIXES = ("_test.py", ".spec.ts", "-test.js", ".test.js", "_test.rb")
-_DOC_PATHS = ("/docs/", "/doc/", "/documentation/")
-_DOC_PREFIXES = ("docs/", "documentation/")
-_DOC_SUFFIXES = (".md", ".rst", ".txt")
-_DOC_FILES = ("license", "readme", "changelog", "contributing")
-_BUILD_PATHS = ("/build/", "/ci/", "/.github/")
-_BUILD_FILES = ("makefile", "dockerfile", "docker", ".sh", ".bat", ".ps1")
+_TEST_PATHS: Final = ("/test/", "/tests/")
+_TEST_PREFIXES: Final = ("tests", "test_")
+_TEST_SUFFIXES: Final = ("_test.py", ".spec.ts", "-test.js", ".test.js", "_test.rb")
+_DOC_PATHS: Final = ("/docs/", "/doc/", "/documentation/")
+_DOC_PREFIXES: Final = ("docs/", "documentation/")
+_DOC_SUFFIXES: Final = (".md", ".rst", ".txt")
+_DOC_FILES: Final = ("license", "readme", "changelog", "contributing")
+_BUILD_PATHS: Final = ("/build/", "/ci/", "/.github/")
+_BUILD_FILES: Final = ("makefile", "dockerfile", "docker", ".sh", ".bat", ".ps1")
 
-_SOURCE_CODE_MIMES = {
+_SOURCE_CODE_MIMES: Final = {
     "text/x-python",
     "text/javascript",
     "text/x-java-source",
@@ -42,20 +42,20 @@ _SOURCE_CODE_MIMES = {
     "text/css",
 }
 
-_CONFIG_MIME_KEYWORDS = ["json", "xml", "yaml", "ini"]
-_ARCHIVE_MIME_KEYWORDS = ["zip", "tar", "gzip", "rar", "x-bzip2"]
-_BUILD_MIME_KEYWORDS = [
+_CONFIG_MIME_KEYWORDS: Final = ["json", "xml", "yaml", "ini"]
+_ARCHIVE_MIME_KEYWORDS: Final = ["zip", "tar", "gzip", "rar", "x-bzip2"]
+_BUILD_MIME_KEYWORDS: Final = [
     "application/x-sh",
     "application/x-executable",
     "application/octet-stream",
 ]
 
-_TEST_BRANCH_NAMES = ("tmp/", "temp/", "wip/", "experiment/", "exp/")
-_FIX_BRANCH_NAMES = ("bugfix", "fix", "hotfix")
-_FEAT_BRANCH_NAMES = ("feature", "feat")
-_DEV_BRANCH_NAMES = ("dev", "develop", "development")
-_MAIN_BRANCH_NAMES = ("main", "master", "prod", "production")
-_LOST_BRANCH_NAMES = ("zombie", "lost", "abandoned", "ghost")
+_TEST_BRANCH_NAMES: Final = ("tmp/", "temp/", "wip/", "experiment/", "exp/")
+_FIX_BRANCH_NAMES: Final = ("bugfix", "fix", "hotfix")
+_FEAT_BRANCH_NAMES: Final = ("feature", "feat")
+_DEV_BRANCH_NAMES: Final = ("dev", "develop", "development")
+_MAIN_BRANCH_NAMES: Final = ("main", "master", "prod", "production")
+_LOST_BRANCH_NAMES: Final = ("zombie", "lost", "abandoned", "ghost")
 
 
 class DiffType(Enum):
