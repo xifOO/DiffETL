@@ -293,3 +293,12 @@ class PRState(Enum):
         elif pr_data.get("state") == "open":
             return cls.OPEN
         return cls.CLOSED
+
+
+class IssueState(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+    @classmethod
+    def from_issue_data(cls, data: dict) -> "IssueState":
+        return cls(data["state"])
