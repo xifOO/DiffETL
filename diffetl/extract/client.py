@@ -115,6 +115,7 @@ class GithubAPIClient(APIClient):
             resp.raise_for_status()
 
             data = resp.json()
+
             if not data:
                 break
 
@@ -132,4 +133,8 @@ class GithubAPIClient(APIClient):
         self, state: str = "all", sort="created", direction="asc"
     ) -> Iterator[Dict]:
         url = self.base_url + "/issues"
-        return self._fetch(url, state, sort, direction)
+        yield from (
+            item
+            for item in self._fetch(url, state, sort, direction)
+            if "pull_request" not in item
+        )
