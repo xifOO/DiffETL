@@ -31,6 +31,6 @@ class IssueElement:
             else None,
             author=Author(
                 name=value["user"]["login"],
-                email="wedyi28111@gmail.com",  # from api later
+                email=None,
             ),
         )
