@@ -42,6 +42,7 @@ class PullRequestElement:
 
     @classmethod
     def from_dict(cls, value: dict) -> Self:
+        print(value["user"])
         return cls(
             ref=PullRequestRef.from_pr_data(value),
             title=value.get("title", ""),
@@ -57,7 +58,7 @@ class PullRequestElement:
             closed_at=datetime.fromisoformat(value["closed_at"].replace("Z", "+00:00"))
             if value.get("closed_at")
             else None,
-            author=Author(name=value["user"]["login"], email="wedyi28111@gmail.com"),
+            author=Author(name=value["user"]["login"], email=None),
             target_branch=value["base"]["ref"],
             source_branch=value["head"]["ref"],
         )
