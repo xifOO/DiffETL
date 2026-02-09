@@ -8,7 +8,7 @@ from diffetl.transform.commit import Author
 
 @dataclass(frozen=True)
 class IssueElement:
-    issue_number: int
+    number: int
     title: str
     description: Optional[str]
     state: IssueState
@@ -19,7 +19,7 @@ class IssueElement:
     @classmethod
     def from_dict(cls, value: dict) -> Self:
         return cls(
-            issue_number=value.get("number", 0),
+            number=value.get("number", 0),
             title=value.get("title", ""),
             description=value.get("body"),
             state=IssueState.from_issue_data(value),
