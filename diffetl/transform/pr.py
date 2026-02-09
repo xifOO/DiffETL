@@ -8,7 +8,7 @@ from diffetl.transform.commit import Author
 
 @dataclass(frozen=True)
 class PullRequestRef:
-    pr_number: int
+    number: int
     source_repo: str
     target_repo: str
     is_fork: bool
@@ -19,7 +19,7 @@ class PullRequestRef:
         target_repo = value["base"]["repo"]["full_name"]
 
         return cls(
-            pr_number=value["number"],
+            number=value["number"],
             source_repo=source_repo,
             target_repo=target_repo,
             is_fork=source_repo != target_repo,
@@ -42,7 +42,6 @@ class PullRequestElement:
 
     @classmethod
     def from_dict(cls, value: dict) -> Self:
-        print(value["user"])
         return cls(
             ref=PullRequestRef.from_pr_data(value),
             title=value.get("title", ""),
