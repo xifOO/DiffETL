@@ -2,12 +2,14 @@ import urllib.parse
 from abc import abstractmethod
 from typing import Dict, Iterator, List, Optional, Tuple
 
+import requests
 from git import Commit as GitCommit
 from git import Repo
-from requests_cache import CachedSession, FileCache
 
-from diffetl.config import BASE_GITHUB_API, get_repo_dir
+from diffetl.config import GITHUB_GRAPHQL, get_repo_dir
 from diffetl.extract._client import GitClient
+from diffetl.extract.graphql.queries.issue import build_issue_query
+from diffetl.extract.graphql.queries.pr import build_pr_query
 
 
 class LocalGitClient(GitClient):
@@ -77,64 +79,64 @@ class APIClient:
         return parts[-2], parts[-1]
 
     @abstractmethod
-    def fetch_pull_requests(self, state: str) -> Iterator[Dict]: ...
+    def fetch_pull_requests(self) -> Iterator[Dict]: ...
 
     @abstractmethod
-    def fetch_issues(self, state: str) -> Iterator[Dict]: ...
+    def fetch_issues(self) -> Iterator[Dict]: ...
 
 
-class GithubAPIClient(APIClient):
+class GithubGraphQLClient(APIClient):
     def __init__(self, repo_url: str, token: Optional[str] = None) -> None:
         super().__init__(repo_url, token)
-        self.base_url = BASE_GITHUB_API.format(self.owner, self.repo_name)
-        self.session = CachedSession(
-            "diffetl",
-            backend=FileCache(
-                cache_name="github_api_cache",
-                use_cache_dir=True,
-                serializer="json",
-            ),
-            expire_after=1024,
-            allowable_methods=["GET"],
-            allowable_codes=[200, 304],
-        )
-        if token:
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
+        self.session = requests.Session()
+        self.session.headers.update({"Authorization": f"Bearer {token}"})
 
-    def _fetch(self, url: str, state: str, sort: str, direction: str) -> Iterator[Dict]:
-        params = {
-            "state": state,
-            "per_page": 100,
-            "page": 1,
-            "sort": sort,
-            "direction": direction,
-        }
+    def _query(self, query: str, variables=None):
+        resp = self.session.post(
+            GITHUB_GRAPHQL, json={"query": query, "variables": variables or {}}
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+
+        if "errors" in payload:
+            raise RuntimeError(payload["errors"])
+
+        return payload["data"]
+
+    def _paginate_repository_connection(
+        self, *, query: str, connection: str, variables: Dict
+    ) -> Iterator[Dict]:
+        cursor = None
 
         while True:
-            resp = self.session.get(url, params=params)
-            resp.raise_for_status()
+            variables["cursor"] = cursor
 
-            data = resp.json()
+            data = self._query(query, variables)
+            conn_data = data["repository"][connection]
 
-            if not data:
+            yield from conn_data["nodes"]
+
+            page = conn_data["pageInfo"]
+
+            if not page["hasNextPage"]:
                 break
 
-            yield from data
-
-            params["page"] += 1
+            cursor = page["endCursor"]
 
     def fetch_pull_requests(
-        self, state: str = "all", sort="created", direction="asc"
+        self, prs_first: int = 50, comments_first: int = 50
     ) -> Iterator[Dict]:
-        url = self.base_url + "/pulls"
-        return self._fetch(url, state, sort, direction)
+        return self._paginate_repository_connection(
+            query=build_pr_query(prs_first, comments_first),
+            connection="pullRequests",
+            variables={"owner": self.owner, "repo": self.repo_name},
+        )
 
     def fetch_issues(
-        self, state: str = "all", sort="created", direction="asc"
+        self, prs_first: int = 50, comments_first: int = 50
     ) -> Iterator[Dict]:
-        url = self.base_url + "/issues"
-        yield from (
-            item
-            for item in self._fetch(url, state, sort, direction)
-            if "pull_request" not in item
+        return self._paginate_repository_connection(
+            query=build_issue_query(prs_first, comments_first),
+            connection="issues",
+            variables={"owner": self.owner, "repo": self.repo_name},
         )

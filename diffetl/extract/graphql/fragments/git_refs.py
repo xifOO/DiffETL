@@ -1,5 +1,3 @@
-
-
 PULL_REQUEST_REFS = """
 fragment PullRequestRefs on PullRequest {
     number
