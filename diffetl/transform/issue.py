@@ -21,16 +21,16 @@ class IssueElement:
         return cls(
             number=value.get("number", 0),
             title=value.get("title", ""),
-            description=value.get("body"),
+            description=value.get("bodyText"),
             state=IssueState.from_issue_data(value),
             created_at=datetime.fromisoformat(
-                value["created_at"].replace("Z", "+00:00")
+                value["createdAt"].replace("Z", "+00:00")
             ),
-            closed_at=datetime.fromisoformat(value["closed_at"].replace("Z", "+00:00"))
-            if value.get("closed_at")
+            closed_at=datetime.fromisoformat(value["closedAt"].replace("Z", "+00:00"))
+            if value.get("closedAt")
             else None,
             author=Author(
-                name=value["user"]["login"],
+                name=value["author"]["login"] if value.get("author") else None,
                 email=None,
             ),
         )

@@ -13,15 +13,6 @@ class BaseCollection(Generic[T], ABC):
 
     def __init__(self) -> None:
         self._elements: List[T] = []
-        self._fetched = False
-
-    def _fetch_elements(self, client: APIClient, state: str) -> None:
-        if not self._fetched:
-            raw_data = self._fetch_raw_data(client, state)
-            for raw in raw_data:
-                element = self._element_class.from_dict(raw)
-                self._elements.append(element)
-            self._fetched = True
 
     def __len__(self) -> int:
         return len(self._elements)
@@ -39,24 +30,50 @@ class BaseCollection(Generic[T], ABC):
         return self._elements[index]
 
     @classmethod
-    def fetch_all(cls, client: APIClient, state: str = "all") -> "BaseCollection[T]":
+    def fetch_all(
+        cls,
+        client: APIClient,
+        *,
+        elements_first: int = 50,
+        comments_first: int = 20,
+    ) -> "BaseCollection[T]":
         collection = cls()
-        collection._fetch_elements(client, state)
+
+        raw_data = collection._fetch_raw_data(
+            client,
+            elements_first=elements_first,
+            comments_first=comments_first,
+        )
+
+        for raw in raw_data:
+            element = cls._element_class.from_dict(raw)
+            collection._elements.append(element)
+
         return collection
 
     @abstractmethod
-    def _fetch_raw_data(self, client: APIClient, state: str) -> Iterator[dict]: ...
+    def _fetch_raw_data(
+        self,
+        client: APIClient,
+        *,
+        elements_first: int,
+        comments_first: int,
+    ) -> Iterator[dict]: ...
 
 
 class PullRequestCollection(BaseCollection[PullRequestElement]):
     _element_class = PullRequestElement
 
-    def _fetch_raw_data(self, client: APIClient, state: str) -> Iterator[dict]:
-        return client.fetch_pull_requests(state)
+    def _fetch_raw_data(
+        self, client: APIClient, *, elements_first: int, comments_first: int
+    ) -> Iterator[dict]:
+        return client.fetch_pull_requests(elements_first, comments_first)
 
 
 class IssueCollection(BaseCollection[IssueElement]):
     _element_class = IssueElement
 
-    def _fetch_raw_data(self, client: APIClient, state: str) -> Iterator[dict]:
-        return client.fetch_issues(state)
+    def _fetch_raw_data(
+        self, client: APIClient, *, elements_first: int, comments_first: int
+    ) -> Iterator[dict]:
+        return client.fetch_issues(elements_first, comments_first)

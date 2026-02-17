@@ -5,7 +5,7 @@ from uuid import UUID
 
 from git import Commit as GitCommit
 
-from diffetl.extract._raw import ExtractMetadata, RawCommit, SourceInfo
+from diffetl.extract.raw import ExtractMetadata, RawCommit, SourceInfo
 
 
 @dataclass

@@ -7,12 +7,11 @@ from git import Commit as GitCommit
 from git import Repo
 
 from diffetl.config import GITHUB_GRAPHQL, get_repo_dir
-from diffetl.extract._client import GitClient
 from diffetl.extract.graphql.queries.issue import build_issue_query
 from diffetl.extract.graphql.queries.pr import build_pr_query
 
 
-class LocalGitClient(GitClient):
+class GitClient:
     def __init__(self, repo_url: str):
         self.repo_url = repo_url
         self._cloned = False
@@ -79,10 +78,14 @@ class APIClient:
         return parts[-2], parts[-1]
 
     @abstractmethod
-    def fetch_pull_requests(self) -> Iterator[Dict]: ...
+    def fetch_pull_requests(
+        self, prs_first: int, comments_first: int
+    ) -> Iterator[Dict]: ...
 
     @abstractmethod
-    def fetch_issues(self) -> Iterator[Dict]: ...
+    def fetch_issues(
+        self, issues_first: int, comments_first: int
+    ) -> Iterator[Dict]: ...
 
 
 class GithubGraphQLClient(APIClient):
@@ -124,19 +127,19 @@ class GithubGraphQLClient(APIClient):
             cursor = page["endCursor"]
 
     def fetch_pull_requests(
-        self, prs_first: int = 50, comments_first: int = 50
+        self, prs_first: int, comments_first: int
     ) -> Iterator[Dict]:
         return self._paginate_repository_connection(
-            query=build_pr_query(prs_first, comments_first),
+            query=build_pr_query(
+                prs_first, 10, comments_first
+            ),  # заглушка в reviews_comments
             connection="pullRequests",
             variables={"owner": self.owner, "repo": self.repo_name},
         )
 
-    def fetch_issues(
-        self, prs_first: int = 50, comments_first: int = 50
-    ) -> Iterator[Dict]:
+    def fetch_issues(self, issues_first: int, comments_first: int) -> Iterator[Dict]:
         return self._paginate_repository_connection(
-            query=build_issue_query(prs_first, comments_first),
+            query=build_issue_query(issues_first, comments_first),
             connection="issues",
             variables={"owner": self.owner, "repo": self.repo_name},
         )

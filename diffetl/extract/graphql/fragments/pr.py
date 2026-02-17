@@ -12,3 +12,15 @@ fragment PullRequestCore on PullRequest {
     }
 }
 """
+
+
+PULL_REQUEST_REVIEW_FIELDS = """
+fragment PullRequestReviewFields on PullRequestReview {
+    bodyText
+    createdAt
+    state
+    author {
+        ...ActorFields
+    }
+}
+"""

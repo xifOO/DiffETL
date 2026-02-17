@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from diffetl.extract._client import GitClient
-from diffetl.extract._raw import SourceInfo
 from diffetl.extract.batch import RawCommitsBatch
+from diffetl.extract.client import GitClient
+from diffetl.extract.raw import SourceInfo
 
 
 class LocalGitRepository:

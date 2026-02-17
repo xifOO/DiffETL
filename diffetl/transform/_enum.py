@@ -278,14 +278,14 @@ class BotType(Enum):
         return None
 
 
-class PRState(Enum):
+class PullRequestState(Enum):
     OPEN = "open"
     CLOSED = "closed"
     MERGED = "merged"
     DRAFT = "draft"
 
     @classmethod
-    def from_pr_data(cls, pr_data: dict) -> "PRState":
+    def from_pr_data(cls, pr_data: dict) -> "PullRequestState":
         if pr_data.get("draft", False):
             return cls.DRAFT
         elif pr_data.get("merged_at") is not None:
@@ -296,9 +296,21 @@ class PRState(Enum):
 
 
 class IssueState(Enum):
-    OPEN = "open"
-    CLOSED = "closed"
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
 
     @classmethod
     def from_issue_data(cls, data: dict) -> "IssueState":
+        return cls(data["state"])
+
+
+class PullRequestReviewState(Enum):
+    APPROVED = "APPROVED"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    COMMENTED = "COMMENTED"
+    DISMISSED = "DISMISSED"
+    PENDING = "PENDING"
+
+    @classmethod
+    def from_pr_review_data(cls, data: dict) -> "PullRequestReviewState":
         return cls(data["state"])

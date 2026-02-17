@@ -3,7 +3,7 @@ from diffetl.extract.graphql.fragments.comments import COMMENTS_FIELDS
 from diffetl.extract.graphql.fragments.issue import ISSUE_CORE
 
 
-def build_issue_query(issues_first: int = 50, comments_first: int = 20):
+def build_issue_query(issues_first: int, comments_first: int):
     return "\n".join(
         [
             ACTOR_FIELDS,
