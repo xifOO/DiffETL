@@ -17,6 +17,14 @@ class Author:
     name: str | None
     email: str | None
 
+    @classmethod
+    def from_dict(cls, value: dict) -> Self:
+        author = value["author"]
+        return cls(
+            name=author["login"],
+            email=author.get("email")
+        )
+
 
 class CommitMetadata:
     __slots__ = ("_commit", "branches", "tags", "custom_attributes")
