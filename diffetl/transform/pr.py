@@ -4,18 +4,20 @@ from typing import List, Optional, Self
 
 from diffetl.transform._enum import PullRequestReviewState, PullRequestState
 from diffetl.transform.commit import Author
+from diffetl.transform.common import parse_dt, parse_dt_opt
 
 
 @dataclass(frozen=True)
 class PullRequestRef:
     number: int
-    source_repo: str
+    source_repo: Optional[str]
     target_repo: str
     is_fork: bool
 
     @classmethod
     def from_pr_data(cls, value: dict) -> Self:
-        source_repo = value["headRepository"]["nameWithOwner"]
+        head_repo = value.get("headRepository")
+        source_repo = head_repo["nameWithOwner"] if head_repo is not None else None
         target_repo = value["baseRepository"]["nameWithOwner"]
         return cls(
             number=value["number"],
@@ -23,10 +25,11 @@ class PullRequestRef:
             target_repo=target_repo,
             is_fork=source_repo != target_repo,
         )
-
+    
 
 @dataclass
 class PullRequestReview:
+    review_id: str
     author: Author
     body: str
     created_at: datetime
@@ -35,14 +38,10 @@ class PullRequestReview:
     @classmethod
     def from_dict(cls, value: dict) -> Self:
         return cls(
-            author=Author(
-                name=value["author"]["login"] if value.get("author") else None,
-                email=None,
-            ),
-            body=value.get("bodyText", ""),
-            created_at=datetime.fromisoformat(
-                value["createdAt"].replace("Z", "+00:00")
-            ),
+            review_id=value["id"],
+            author=Author.from_dict(value),
+            body=value["bodyText"],
+            created_at=parse_dt(value["createdAt"]),
             state=PullRequestReviewState.from_pr_review_data(value),
         )
 
@@ -65,26 +64,17 @@ class PullRequestElement:
     def from_dict(cls, value: dict) -> Self:
         return cls(
             ref=PullRequestRef.from_pr_data(value),
-            title=value.get("title", ""),
+            title=value["title"],
             reviews=[
                 PullRequestReview.from_dict(r)
-                for r in (value.get("reviews") or {}).get("nodes") or []
+                for r in value["reviews"].get("nodes")
             ],
             description=value.get("bodyText"),
             state=PullRequestState.from_pr_data(value),
-            created_at=datetime.fromisoformat(
-                value["createdAt"].replace("Z", "+00:00")
-            ),
-            merged_at=datetime.fromisoformat(value["mergedAt"].replace("Z", "+00:00"))
-            if value.get("mergedAt")
-            else None,
-            closed_at=datetime.fromisoformat(value["closedAt"].replace("Z", "+00:00"))
-            if value.get("closedAt")
-            else None,
-            author=Author(
-                name=value["author"]["login"] if value.get("author") else None,
-                email=None,
-            ),
+            created_at=parse_dt(value["createdAt"]),
+            merged_at=parse_dt_opt(value.get("mergedAt")),
+            closed_at=parse_dt_opt(value.get("closedAt")),
+            author=Author.from_dict(value),
             target_branch=value["baseRefName"],
             source_branch=value["headRefName"],
         )
