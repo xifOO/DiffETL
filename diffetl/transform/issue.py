@@ -4,6 +4,7 @@ from typing import Optional, Self
 
 from diffetl.transform._enum import IssueState
 from diffetl.transform.commit import Author
+from diffetl.transform.common import parse_dt, parse_dt_opt
 
 
 @dataclass(frozen=True)
@@ -19,18 +20,11 @@ class IssueElement:
     @classmethod
     def from_dict(cls, value: dict) -> Self:
         return cls(
-            number=value.get("number", 0),
-            title=value.get("title", ""),
-            description=value.get("bodyText"),
+            number=value["number"],
+            title=value["title"],
+            description=value.get("bodyText", ""),
             state=IssueState.from_issue_data(value),
-            created_at=datetime.fromisoformat(
-                value["createdAt"].replace("Z", "+00:00")
-            ),
-            closed_at=datetime.fromisoformat(value["closedAt"].replace("Z", "+00:00"))
-            if value.get("closedAt")
-            else None,
-            author=Author(
-                name=value["author"]["login"] if value.get("author") else None,
-                email=None,
-            ),
+            created_at=parse_dt(value["createdAt"]),
+            closed_at=parse_dt_opt(value.get("closedAt")),
+            author=Author.from_dict(value)
         )
