@@ -305,12 +305,12 @@ class IssueState(Enum):
 
 
 class PullRequestReviewState(Enum):
-    APPROVED = "APPROVED"
-    CHANGES_REQUESTED = "CHANGES_REQUESTED"
-    COMMENTED = "COMMENTED"
-    DISMISSED = "DISMISSED"
-    PENDING = "PENDING"
+    APPROVED = "approved"
+    CHANGES_REQUESTED = "changes_requested"
+    COMMENTED = "commented"
+    DISMISSED = "dismissed"
+    PENDING = "pending"
 
     @classmethod
     def from_pr_review_data(cls, data: dict) -> "PullRequestReviewState":
-        return cls(data["state"])
+        return cls(data["state"].lower())
